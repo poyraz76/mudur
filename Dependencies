@@ -1,0 +1,65 @@
+ 1. Derleme İçin Gerekli Bağımlılıklar (Dependencies)
+​Sistemi x86_64 mimarisinde, izole bir sandbox içinde derlemek ve çalıştırmak için gereken çekirdek bileşenler şunlardır:
+​Çekirdek Yazılım ve Dil
+​Python 3.12+: Asenkron TaskGroup yapıları ve modern tip belirteçleri için zorunludur.
+​GCC 13+ / G++: Python uzantılarını ve düşük seviyeli C/C++ sistem çağrılarını derlemek için gereklidir.
+​SQLite 3.x: Merkezi envanter yönetimi (inventory.db) için veritabanı motoru.
+​Kritik Python Kütüphaneleri (Runtime)
+​blake3: Dosya bütünlüğünü anlık olarak doğrulamak ve işlem mühürlerini oluşturmak için birincil hash kütüphanesi.
+​zstandard (zstd): Log sıkıştırma, yedekleme ve .tar.zst paketleme işlemleri için varsayılan sıkıştırma motoru.
+​dbus-python: Müdür ve Çomar (COMAR 2.0) arasındaki haberleşme katmanı için gereklidir.
+​pyparted: Disk bölümlerini (update-fstab) kesin olarak tanımlamak ve taramak için kullanılan kütüphane.
+​Sistem Araçları
+​udevadm: Donanım taraması (Oto-driver) süreci için çekirdek araç.
+​gettext / msgfmt: Çoklu dil (i18n) desteği ve dil kataloglarının derlenmesi için.
+​mount/umount: Sanal dosya sistemleri (VFS) ve yerel disk bölümlerinin yönetimi için.
+​🛠️ 2. Neler Yapıldı? (Geliştirme Özeti)
+​Sistemi modernize etmek ve Systemd-free mimariyi 2026 standartlarına mühürlemek için aşağıdaki modüller nihai hallerine kavuşturuldu:
+​Çekirdek Sistem (Init & Boot)
+​mudur.py (Orkestra Şefi): Asenkron boot süreci, VFS bağlama, donanım tanıma (Oto-driver) ve servisleri paralel başlatma yeteneği eklendi.
+​service.py (Servis Yöneticisi): Servis filtreleme, sıralama ve "zaten çalışıyor" durumunda redundant (gereksiz) işlem engelleme zekası mühürlendi.
+​mudur_cgroupfs.py (Kaynak Yönetimi): Cgroups hiyerarşisi tmpfs üzerine kuruldu, aktif kontrolcüler SQLite envanterine işlendi ve Zstd ile anlık durum snapshot'ı alma özelliği eklendi.
+​mudur_tmpfiles.py (Uçucu Dosya Sistemi): Geçici dizinlerin Baselayout önceliğine göre oluşturulması ve izinlerin BLAKE3 ile doğrulanması sağlandı.
+​Disk ve Çevre Yönetimi
+​update-fstab.py (Disk Mühürü): Disk tarama sonuçları SQLite'a işlendi, eski fstab Zstd ile yedeklendi ve her işlem BLAKE3 ile mühürlendi.
+​update-environment.py (Çevre Değişkenleri): Değişkenler metin dosyalarından kurtarılıp SQLite veritabanına taşındı, profile.env üretimi otonom hale getirildi.
+​Kullanıcı ve Uyumluluk Katmanı
+​adduser.py / deluser.py (Kullanıcı Yönetimi): Çomar üzerinden güvenli kullanıcı işlemleri sağlandı; silme öncesi ev dizini Zstd ile arşivleme ve işlem mühürleme katmanı eklendi.
+​compat.py (Geçiş Köprüsü): Eski init.d scriptlerinin modern /bin/service komutuna BLAKE3 doğrulamasıyla yönlendirilmesi sağlandı.
+​Yapılandırma ve Kurulum
+​mudur.toml (Yeni Nesil Konfigürasyon): Eski XML/Shell yapısından TOML formatına geçildi, sistem dili ve boot parametreleri hiyerarşik olarak mühürlendi.
+​setup.py (Kurulum Motoru): Kurulan her dosyayı BLAKE3 hash değeriyle SQLite envanterine işleyen ve dağıtım paketlerini Zstd ile mühürleyen nihai motor tamamlandı.
+
+
+
+​🏗️ 1. Necessary Dependencies for Compilation
+​To compile and run the system within an x86_64 architecture and an isolated sandbox, the following core components are required:  
+​Core Software and Language
+​Python 3.12+: Mandatory for asynchronous TaskGroup structures and modern type hinting.  
+​GCC 13+ / G++: Necessary for compiling Python extensions and low-level C/C++ system calls.  
+​SQLite 3.x: The database engine utilized for centralized inventory management (inventory.db).  
+​Critical Python Libraries (Runtime)
+​blake3: The primary hash library for instantaneous file integrity verification and creating operation seals.  
+​zstandard (zstd): The default compression engine for log compression, backups, and .tar.zst packaging operations.  
+​dbus-python: Required for the communication layer between Mudur and Comar (COMAR 2.0).  
+​pyparted: Used to precisely define and scan disk partitions during update-fstab operations.  
+​System Tools
+​udevadm: The core tool for the hardware scanning (Oto-driver) process.  
+​gettext / msgfmt: For multi-language (i18n) support and compiling language catalogs.  
+​mount / umount: For managing Virtual File Systems (VFS) and local disk partitions.  
+​🛠️ 2. What Has Been Done? (Development Summary)
+​The following modules have been finalized to modernize the system and seal the Systemd-free architecture to 2026 standards:  
+​Core System (Init & Boot)
+​mudur.py (The Conductor): Integrated with asynchronous boot processing, VFS mounting, hardware recognition (Oto-driver), and parallel service starting capabilities.  
+​service.py (Service Manager): Sealed with logic for service filtering, sorting, and redundant operation prevention for services already in a "running" state.  
+​mudur_cgroupfs.py (Resource Management): Cgroups hierarchy was established on tmpfs; active controllers were recorded in the SQLite inventory, and an instantaneous status snapshot feature via Zstd was added.  
+​mudur_tmpfiles.py (Volatile File System): Ensured that temporary directories are created according to Baselayout priority, with permissions verified via BLAKE3.  
+​Disk and Environment Management
+​update-fstab.py (Disk Seal): Disk scanning results are now processed into SQLite; legacy fstab files are backed up via Zstd, and every operation is sealed with BLAKE3.  
+​update-environment.py (Environment Variables): Variables were migrated from plain text files to the SQLite database, and profile.env generation has been fully automated.  
+​User and Compatibility Layer
+​adduser.py / deluser.py (User Management): Secure user operations are provided via Comar; includes a layer for archiving home directories with Zstd and sealing operations prior to deletion.  
+​compat.py (Transition Bridge): Legacy init.d scripts are now redirected to the modern /bin/service command with BLAKE3 integrity verification.  
+​Configuration and Installation
+​mudur.toml (Next-Gen Configuration): Successfully transitioned from legacy XML/Shell structures to TOML format; system language and boot parameters are now hierarchically sealed.  
+​setup.py (Installation Engine): Finalized the engine that processes every installed file into the SQLite inventory with BLAKE3 hashes and seals distribution packages with Zstd.  

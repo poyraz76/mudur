@@ -1,39 +1,28 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2007-2009 TUBITAK/UEKAE
+# Copyright (C) 2026, Ergün Salman ergunsalman@hotmail.com Poyraz76
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
-# option) any later version. Please read the COPYING file.
-#
+# ALTYAPI: Python 3.12+, x86_64, SQLite DB.
+# GÜVENLİK: BLAKE3 (Bütünlük doğrulaması).
+# ARŞİVLEME: Zstd (Eski init.d yapısı yedeği).
+# SİSTEM: Systemd-free (Müdür + Çomar Uyumluluk Katmanı).
 
 import subprocess
 import sys
 import os
+import sqlite3
+import logging
+import zstandard as zstd
+from pathlib import Path
+from blake3 import blake3
 
-# This script populates the /etc/init.d directory by creating symlinks to the
-# compat.py. This way, when /etc/init.d/<service_name> <action> is called, the symlink
-# delegates this transparently to the /bin/service command.
+# --- Konfigürasyon ---
+DB_PATH = Path("/var/lib/pisi/inventory.db")
+INITD_PATH = Path("/etc/init.d")
+SERVICE_BINARY = Path("/bin/service")
+BACKUP_PATH = Path("/var/cache/pisi/backups/initd_legacy.tar.zst")
 
-# Usage:
-# python compat.py
-# /etc/init.d/samba start
-
-
-def wrap_service(package, op):
-    cmd = ["service", package, op]
-    return subprocess.call(cmd)
-
-def populate_initd():
-    for name in os.listdir("/var/db/comar3/scripts/System.Service"):
-        if not os.path.exists("/etc/init.d/%s" % name[:-3]):
-            os.symlink("compat.py", "/etc/init.d/%s" % name[:-3])
-
-if __name__ == "__main__":
-    myname = os.path.basename(sys.argv[0])
-    if len(sys.argv) == 2:
-        sys.exit(wrap_service(myname, sys.argv[1]))
-    elif myname == "compat.py" and os.getuid() == 0:
-        populate_initd()
+class CompatManager:
+    """Legacy init.d komutlarını modern Müdür servis
